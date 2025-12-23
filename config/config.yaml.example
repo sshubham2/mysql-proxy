@@ -1,0 +1,133 @@
+# ChronosProxy Configuration File
+
+proxy:
+  host: 0.0.0.0              # Listen on all interfaces
+  port: 3307                 # Port Tableau connects to
+  max_connections: 100       # Maximum concurrent connections
+  timeout: 300               # Connection timeout (seconds)
+
+backend:
+  connection_type: odbc      # 'odbc' or 'native'
+
+  odbc:
+    # Option 1: Full connection string (recommended for flexibility)
+    connection_string: "DRIVER={MySQL ODBC 8.0 Driver};SERVER=localhost;PORT=3306;DATABASE=test_db;USER=root;PASSWORD=${MYSQL_PASSWORD};OPTION=3;"
+
+    # Option 2: Individual parameters (will be assembled into connection string)
+    # Uncomment and configure if not using connection_string above
+    # driver: "MySQL ODBC 8.0 Driver"
+    # server: localhost
+    # port: 3306
+    # database: test_db
+    # user: root
+    # password: ${MYSQL_PASSWORD}
+    # options: 3
+    # charset: utf8mb4
+    # connection_timeout: 30
+    # read_timeout: 300
+    # write_timeout: 300
+
+  # Alternative native connection (fallback)
+  native:
+    host: localhost
+    port: 3306
+    database: test_db
+    user: root
+    password: ${MYSQL_PASSWORD}
+    charset: utf8mb4
+    connect_timeout: 30
+
+  # Connection pooling
+  pool_size: 10              # Number of connections in pool
+  pool_recycle: 3600         # Recycle connections after 1 hour
+  pool_pre_ping: true        # Test connection before use
+
+capabilities:
+  # Features that are NOT supported (will be rejected)
+  unsupported_features:
+    - joins                  # All JOIN types
+    - unions                 # UNION and UNION ALL
+    - window_functions       # ROW_NUMBER, RANK, OVER, etc.
+    - subqueries            # Will attempt unwrap, reject if can't
+
+  # Functions that are NOT supported (will be rejected)
+  unsupported_functions:
+    - COUNT                  # COUNT(*), COUNT(col)
+
+  # Features that ARE supported
+  supported_features:
+    - simple_select
+    - where_clause
+    - group_by
+    - order_by
+    - limit
+
+  # Functions that ARE supported
+  supported_functions:
+    - SUM
+    - AVG
+    - MAX
+    - MIN
+
+transformations:
+  # Subquery handling
+  unwrap_subqueries: true         # Auto-flatten subqueries
+  max_subquery_depth: 2           # Max depth after unwrapping
+
+  # GROUP BY handling
+  auto_fix_group_by: true         # Auto-add/complete GROUP BY
+
+  # Future transformations
+  simplify_complex_queries: false # Not yet implemented
+
+business_rules:
+  # cob_date is MANDATORY (reject if missing)
+  require_cob_date: true
+
+  # GROUP BY is MANDATORY with aggregations (auto-fix)
+  require_complete_group_by: true
+
+  # Database access control
+  allowed_databases: []           # Empty = all allowed
+  blocked_databases:
+    - mysql
+    - information_schema
+    - performance_schema
+    - sys
+
+security:
+  block_writes: true
+  write_operations:
+    - INSERT
+    - UPDATE
+    - DELETE
+    - DROP
+    - CREATE
+    - ALTER
+    - TRUNCATE
+    - REPLACE
+    - RENAME
+    - GRANT
+    - REVOKE
+
+logging:
+  level: INFO                      # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_dir: logs
+
+  # What to log
+  log_rejections: true             # Log rejected queries
+  log_transformations: true        # Log transformations
+  log_metadata_queries: false      # Usually too noisy
+  log_execution_time: true
+
+  # Query detail
+  max_query_length: 5000           # Truncate long queries
+  log_query_parameters: false      # Privacy: don't log params
+
+  # File rotation
+  rotation: daily                  # daily, weekly, or size
+  retention_days: 30
+  max_file_size_mb: 100
+
+  # Metrics
+  log_metrics_interval: 100        # Every N queries

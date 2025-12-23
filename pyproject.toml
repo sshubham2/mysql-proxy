@@ -1,0 +1,155 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chronosproxy"
+version = "1.0.0"
+description = "Intelligent MySQL protocol proxy for limited SQL backends"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Your Organization", email = "dev@yourcompany.com"}
+]
+maintainers = [
+    {name = "Your Organization", email = "dev@yourcompany.com"}
+]
+keywords = [
+    "mysql",
+    "proxy",
+    "tableau",
+    "database",
+    "sql-transformation"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Database :: Database Engines/Servers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+
+# Version strategy: Use >= with reasonable upper bounds
+# Latest versions checked: 2025-12-23
+# - mysql-mimic: 2.6.4, pyodbc: 5.3.0, sqlglot: 28.5.0, pyyaml: 6.0.3
+dependencies = [
+    "mysql-mimic>=2.0.0,<4.0",           # Latest: 2.6.4
+    "pyodbc>=5.0.1,<6.0",                # Latest: 5.3.0
+    "mysql-connector-python>=8.2.0,<10.0", # Latest: 9.x
+    "sqlglot>=20.0.0,<30.0",             # Latest: 28.5.0, active dev
+    "pyyaml>=6.0.1,<7.0",                # Latest: 6.0.3
+    "python-dotenv>=1.0.0,<2.0",         # Stable
+    "colorlog>=6.8.0,<7.0",              # Stable
+    "python-json-logger>=2.0.7,<4.0",    # Allow flexibility
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.3,<9.0",
+    "pytest-asyncio>=0.21.1,<1.0",
+    "pytest-cov>=4.1.0,<6.0",
+    "pytest-mock>=3.12.0,<4.0",
+    "mypy>=1.7.0,<2.0",
+    "types-PyYAML>=6.0.12",
+    "ruff>=0.1.0",  # Modern, fast - keep flexible for rapid improvements
+]
+
+[project.urls]
+Homepage = "https://github.com/yourorg/chronosproxy"
+Documentation = "https://github.com/yourorg/chronosproxy#readme"
+Repository = "https://github.com/yourorg/chronosproxy.git"
+Issues = "https://github.com/yourorg/chronosproxy/issues"
+
+[project.scripts]
+chronosproxy = "src.main:main"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+exclude = ["tests*"]
+
+# Pytest configuration
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--showlocals",
+]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/__init__.py",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+
+# MyPy configuration
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+
+[[tool.mypy.overrides]]
+module = [
+    "mysql_mimic.*",
+    "sqlglot.*",
+    "pyodbc.*",
+]
+ignore_missing_imports = true
+
+# Ruff configuration (modern linter/formatter)
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Ignore unused imports in __init__.py
+"tests/*" = ["B", "F401", "F811"]  # Relax rules for tests
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

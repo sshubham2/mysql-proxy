@@ -1,0 +1,30 @@
+# ChronosProxy - Core Dependencies
+#
+# Installation options:
+#   Production:   pip install -r requirements.txt
+#   Development:  pip install -e ".[dev]"
+#   Editable:     pip install -e .
+
+# Versions checked: 2025-12-23
+# mysql-mimic: 2.6.4, pyodbc: 5.3.0, sqlglot: 28.5.0, pyyaml: 6.0.3
+
+# Core MySQL Protocol
+mysql-mimic>=2.0.0,<4.0
+
+# Database Connectivity
+pyodbc>=5.0.1,<6.0
+mysql-connector-python>=8.2.0,<10.0
+
+# SQL Parsing & Transformation
+sqlglot>=20.0.0,<30.0
+
+# Configuration
+pyyaml>=6.0.1,<7.0
+python-dotenv>=1.0.0,<2.0
+
+# Logging
+colorlog>=6.8.0,<7.0
+python-json-logger>=2.0.7,<4.0
+
+# NOTE: Dev dependencies (pytest, mypy, ruff) are now in pyproject.toml
+# Install with: pip install -e ".[dev]"
