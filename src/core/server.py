@@ -4,6 +4,7 @@ Main server using mysql-mimic to accept Tableau connections
 """
 
 import uuid
+import asyncio
 from mysql_mimic import MysqlServer
 from src.config.settings import Settings
 from src.config.logging_config import get_logger
@@ -51,11 +52,11 @@ class ChronosServer:
             connection_id=connection_id
         )
 
-    def start(self):
+    async def start_async(self):
         """
-        Start the MySQL protocol server
+        Start the MySQL protocol server (async version)
 
-        This will block until server is stopped
+        This will run until stopped
         """
         self.logger.info(f"Starting ChronosProxy on {self.host}:{self.port}")
 
@@ -67,8 +68,11 @@ class ChronosServer:
         )
 
         try:
-            # Start server (blocking)
-            server.serve_forever()
+            # Start server (async, blocking)
+            await server.serve_forever()
+        except asyncio.CancelledError:
+            self.logger.info("Server cancelled")
+            raise
         except KeyboardInterrupt:
             self.logger.info("Server stopped by user")
         except Exception as e:
@@ -76,6 +80,17 @@ class ChronosServer:
             raise
         finally:
             self.logger.info("ChronosProxy server shutdown")
+
+    def start(self):
+        """
+        Start the MySQL protocol server (sync wrapper)
+
+        This blocks until server is stopped
+        """
+        try:
+            asyncio.run(self.start_async())
+        except KeyboardInterrupt:
+            self.logger.info("Server stopped by user (KeyboardInterrupt)")
 
     def __repr__(self) -> str:
         return f"ChronosServer(host={self.host}, port={self.port})"

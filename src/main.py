@@ -108,7 +108,8 @@ def main():
         # Test connection
         logger.info("Testing backend connection...")
         executor = QueryExecutor(connection_pool)
-        test_result = executor.execute("SELECT 1 AS test")
+        # Use SHOW query instead of SELECT 1 to avoid validation issues
+        test_result = executor.execute("SHOW STATUS LIKE 'Threads_connected'")
 
         if not test_result.success:
             logger.error(f"Backend connection test failed: {test_result.error}")

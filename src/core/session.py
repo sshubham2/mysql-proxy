@@ -3,16 +3,16 @@ MySQL Session Handler
 Handles individual client sessions using mysql-mimic
 """
 
-from typing import Sequence, List, Tuple, Any
-from mysql_mimic import MysqlSession, ResultSet, ColumnDefinition
-from mysql_mimic.types import MysqlType
+from typing import Tuple, List, Any, Dict
+from mysql_mimic import Session
+from sqlglot import exp
 from src.config.settings import Settings
 from src.config.logging_config import get_logger
 from src.core.query_pipeline import QueryPipeline
 from src.backend.executor import QueryExecutor
 
 
-class ChronosSession(MysqlSession):
+class ChronosSession(Session):
     """Custom MySQL session for ChronosProxy"""
 
     def __init__(
@@ -36,18 +36,40 @@ class ChronosSession(MysqlSession):
         self.logger = get_logger(__name__)
         self.current_database = None
 
-    def query(self, expression: str) -> ResultSet:
+        # Override middlewares to pass metadata queries to backend
+        # By default, Session intercepts SHOW, DESCRIBE, and INFORMATION_SCHEMA
+        # queries and returns synthetic results. For a proxy, we need the real
+        # backend's metadata. Only keep essential session state management:
+        self.middlewares = [
+            self._set_var_middleware,  # Handle SET @var (session variables)
+            self._use_middleware,       # Handle USE database (current db tracking)
+        ]
+        # All other queries (SHOW, DESCRIBE, INFORMATION_SCHEMA, SELECT, etc.)
+        # will pass through to query() method and reach the backend server.
+
+    async def query(
+        self,
+        expression: exp.Expression,
+        sql: str,
+        attrs: Dict[str, str]
+    ) -> Tuple[List[Tuple[Any, ...]], List[str]]:
         """
         Handle SQL query from client
 
         Args:
-            expression: SQL query string
+            expression: Parsed SQL expression (sqlglot AST)
+            sql: Original SQL query string
+            attrs: Query attributes
 
         Returns:
-            ResultSet with query results
+            Tuple of (rows, column_names)
+            - rows: List of row tuples
+            - column_names: List of column names
         """
-        # Get client info
-        source_ip = getattr(self, '_client_address', ('unknown', 0))[0]
+        # Get client info (if available)
+        source_ip = "unknown"
+        if hasattr(self, 'connection') and hasattr(self.connection, 'peername'):
+            source_ip = self.connection.peername[0] if self.connection.peername else "unknown"
 
         # Create pipeline for this query
         pipeline = QueryPipeline(
@@ -58,111 +80,26 @@ class ChronosSession(MysqlSession):
         )
 
         # Process query
-        result = pipeline.process(expression)
+        result = pipeline.process(sql)
 
         if result.success:
-            # Convert columns to mysql-mimic format
-            column_defs = self._convert_columns(result.columns)
+            # Extract column names from column definitions
+            column_names = [col[0] for col in result.columns]
 
-            # Return successful result
-            return ResultSet(
-                columns=column_defs,
-                rows=result.rows
-            )
+            # Return rows and column names
+            return result.rows, column_names
         else:
             # Raise error to send to client
             raise Exception(result.error_message)
 
-    def use_database(self, database: str) -> None:
+    async def schema(self) -> Dict[str, Dict[str, Dict[str, str]]]:
         """
-        Handle USE database command
+        Return database schema (optional)
 
-        Args:
-            database: Database name
-
-        Raises:
-            Exception: If database is blocked
-        """
-        # Check if database is allowed
-        if not self.settings.is_database_allowed(database):
-            from src.utils.error_formatter import ErrorFormatter
-            error_msg = ErrorFormatter.format_database_blocked_error(database)
-            raise Exception(error_msg)
-
-        self.current_database = database
-        self.logger.info(f"Connection {self.connection_id} switched to database: {database}")
-
-    def _convert_columns(
-        self,
-        columns: List[Tuple[str, str]]
-    ) -> Sequence[ColumnDefinition]:
-        """
-        Convert column definitions to mysql-mimic format
-
-        Args:
-            columns: List of (name, type) tuples
+        Returns empty dict - we don't provide schema info since we're proxying
+        to a real MySQL server.
 
         Returns:
-            List of ColumnDefinition objects
+            Empty dictionary (schema provided by backend MySQL server)
         """
-        column_defs = []
-
-        for name, mysql_type in columns:
-            # Map MySQL type name to MysqlType
-            mimic_type = self._map_to_mimic_type(mysql_type)
-
-            column_defs.append(
-                ColumnDefinition(
-                    name=name,
-                    type=mimic_type
-                )
-            )
-
-        return column_defs
-
-    def _map_to_mimic_type(self, mysql_type: str) -> MysqlType:
-        """
-        Map MySQL type name to mysql-mimic MysqlType
-
-        Args:
-            mysql_type: MySQL type name (e.g., 'VARCHAR', 'INT')
-
-        Returns:
-            MysqlType enum value
-        """
-        # Map common types
-        type_map = {
-            'CHAR': MysqlType.VAR_STRING,
-            'VARCHAR': MysqlType.VAR_STRING,
-            'TEXT': MysqlType.BLOB,
-            'TINYTEXT': MysqlType.BLOB,
-            'MEDIUMTEXT': MysqlType.BLOB,
-            'LONGTEXT': MysqlType.BLOB,
-            'TINYINT': MysqlType.TINY,
-            'SMALLINT': MysqlType.SHORT,
-            'MEDIUMINT': MysqlType.INT24,
-            'INT': MysqlType.LONG,
-            'INTEGER': MysqlType.LONG,
-            'BIGINT': MysqlType.LONGLONG,
-            'FLOAT': MysqlType.FLOAT,
-            'DOUBLE': MysqlType.DOUBLE,
-            'REAL': MysqlType.DOUBLE,
-            'DECIMAL': MysqlType.NEWDECIMAL,
-            'NUMERIC': MysqlType.NEWDECIMAL,
-            'DATE': MysqlType.DATE,
-            'TIME': MysqlType.TIME,
-            'DATETIME': MysqlType.DATETIME,
-            'TIMESTAMP': MysqlType.TIMESTAMP,
-            'YEAR': MysqlType.YEAR,
-            'BLOB': MysqlType.BLOB,
-            'TINYBLOB': MysqlType.TINY_BLOB,
-            'MEDIUMBLOB': MysqlType.MEDIUM_BLOB,
-            'LONGBLOB': MysqlType.LONG_BLOB,
-            'BIT': MysqlType.BIT,
-            'ENUM': MysqlType.ENUM,
-            'SET': MysqlType.SET,
-            'JSON': MysqlType.JSON,
-            'NULL': MysqlType.NULL,
-        }
-
-        return type_map.get(mysql_type.upper(), MysqlType.VAR_STRING)
+        return {}

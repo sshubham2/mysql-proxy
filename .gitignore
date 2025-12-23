@@ -62,3 +62,7 @@ config/config.yaml
 .claude
 .claude/*
 logs/.gitkeep
+
+# venv
+.venv/
+.venv/*
