@@ -82,9 +82,12 @@ class Settings:
             var_name = match.group(1)
             value = os.getenv(var_name)
             if value is None:
-                # Check if it's a password field - allow empty for no password
+                # Defaults for common credentials (if not set)
                 if var_name.endswith('PASSWORD'):
                     return ''  # Empty password
+                if var_name == 'MYSQL_USER':
+                    return 'root'  # Default MySQL user
+                # Other variables must be set
                 raise ConfigError(
                     f"Environment variable '{var_name}' not found. "
                     f"Please set it in .env file or environment."

@@ -1,19 +1,32 @@
-# Password Configuration Guide
+# MySQL Credentials Configuration Guide
 
 ## TL;DR
 
-**Yes, you can leave it blank for no password:**
+**Username and password are both configurable via environment variables:**
 
 ```bash
 # In .env file
-MYSQL_PASSWORD=
+MYSQL_USER=root              # Defaults to 'root' if omitted
+MYSQL_PASSWORD=              # Blank = no password
 ```
 
-Or completely omit the variable - it will default to an empty password.
+Both can be omitted - will use defaults (user: `root`, password: empty).
 
-## How Password Configuration Works
+## How Credentials Configuration Works
 
-### Three Options
+### Username Configuration
+
+1. **Set username** (any MySQL user):
+   ```bash
+   MYSQL_USER=myapp
+   ```
+
+2. **Use default** (omit variable):
+   ```bash
+   # Don't include MYSQL_USER - defaults to 'root'
+   ```
+
+### Password Configuration
 
 1. **With Password** (recommended for security):
    ```bash
@@ -27,7 +40,7 @@ Or completely omit the variable - it will default to an empty password.
 
 3. **Omit Variable** (defaults to no password):
    ```bash
-   # Don't include MYSQL_PASSWORD in .env at all
+   # Don't include MYSQL_PASSWORD - defaults to empty
    ```
 
 ### How It's Used
@@ -55,37 +68,51 @@ PASSWORD=
 
 ## Different MySQL Authentication Modes
 
-### 1. Local Development (No Password)
+### 1. Local Development (Default root, No Password)
 
 ```bash
-# .env
+# .env (or omit these lines entirely - will use defaults)
+MYSQL_USER=root
 MYSQL_PASSWORD=
-```
-
-```yaml
-# config/config.yaml
-connection_string: "DRIVER={MySQL ODBC 8.0 Driver};SERVER=localhost;PORT=3306;DATABASE=test;USER=root;PASSWORD=${MYSQL_PASSWORD}"
 ```
 
 **MySQL Server Setup**:
 ```sql
--- Create user with no password (local development only!)
+-- Allow root with no password (local development only!)
 CREATE USER 'root'@'localhost' IDENTIFIED BY '';
 GRANT ALL PRIVILEGES ON test.* TO 'root'@'localhost';
 ```
 
-### 2. Password Authentication (Production)
+### 2. Application User with Password (Production)
 
 ```bash
 # .env
+MYSQL_USER=chronos_app
 MYSQL_PASSWORD=MySecureP@ssw0rd
 ```
 
 **MySQL Server Setup**:
 ```sql
--- Create user with password
-CREATE USER 'appuser'@'%' IDENTIFIED BY 'MySecureP@ssw0rd';
-GRANT SELECT ON production.* TO 'appuser'@'%';
+-- Create dedicated application user with limited permissions
+CREATE USER 'chronos_app'@'%' IDENTIFIED BY 'MySecureP@ssw0rd';
+GRANT SELECT ON production.* TO 'chronos_app'@'%';  -- Read-only!
+FLUSH PRIVILEGES;
+```
+
+### 3. Read-Only User (Best Practice for Tableau)
+
+```bash
+# .env
+MYSQL_USER=tableau_readonly
+MYSQL_PASSWORD=Tableau2024!
+```
+
+**MySQL Server Setup**:
+```sql
+-- Create read-only user for Tableau
+CREATE USER 'tableau_readonly'@'%' IDENTIFIED BY 'Tableau2024!';
+GRANT SELECT ON analytics_db.* TO 'tableau_readonly'@'%';
+FLUSH PRIVILEGES;
 ```
 
 ### 3. Socket Authentication (No Password Needed)
@@ -255,15 +282,30 @@ Switch by changing the variable name in config.
 
 ## Summary
 
-| Scenario | .env Configuration | Result |
-|----------|-------------------|--------|
-| **Local dev, no password** | `MYSQL_PASSWORD=` | Empty password |
-| **Local dev, omit variable** | (don't include) | Empty password |
-| **Production with password** | `MYSQL_PASSWORD=secret` | Uses password |
-| **Secrets manager** | Set via environment | Uses password from secret |
+### Credential Configuration Matrix
 
-**Key Point**: The code now **allows blank passwords** by:
-1. Accepting `MYSQL_PASSWORD=` (empty string)
-2. Defaulting to `''` if variable is not set at all (for *PASSWORD variables only)
+| Scenario | MYSQL_USER | MYSQL_PASSWORD | Result |
+|----------|-----------|---------------|--------|
+| **Local dev (defaults)** | (omit) | (omit) | user: `root`, password: empty |
+| **Local dev (explicit)** | `root` | `` (empty) | user: `root`, password: empty |
+| **App user** | `myapp` | `secret123` | user: `myapp`, password: `secret123` |
+| **Tableau readonly** | `tableau_ro` | `Tableau2024!` | user: `tableau_ro`, password set |
+| **Production** | `prod_user` | From secrets | User/pass from secure storage |
+
+### Default Behavior
+
+**Username** (`MYSQL_USER`):
+- If set: Uses specified username
+- If omitted: Defaults to `root`
+
+**Password** (`MYSQL_PASSWORD`):
+- If set: Uses specified password
+- If empty (`MYSQL_PASSWORD=`): Empty password
+- If omitted: Defaults to empty password
+
+**Key Points**:
+1. Both username and password are now configurable via environment variables
+2. Sensible defaults allow quick local setup
+3. Production deployments should always set explicit credentials
 
 This gives you flexibility for local development while still supporting secure production deployments.
