@@ -152,10 +152,11 @@ All core functionality has been implemented and is ready for testing.
 - `SELECT * FROM INFORMATION_SCHEMA.TABLES` → `SHOW TABLES`
 - `SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users'` → `SHOW COLUMNS FROM users`
 - `SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA` → `SHOW DATABASES`
+- Complex queries (filtering by data_type, etc.) return empty result gracefully
 - Conversion happens transparently before sending to backend
 - Tableau can now discover schema even with limited backend
-- Fixed in: `src/utils/information_schema_converter.py`, `src/core/query_pipeline.py:260-276`
-- See: `docs/INFORMATION_SCHEMA_CONVERSION.md`
+- Fixed in: `src/utils/information_schema_converter.py`, `src/core/query_pipeline.py:260-297`
+- See: `docs/INFORMATION_SCHEMA_CONVERSION.md`, `docs/COMPLEX_INFORMATION_SCHEMA_QUERIES.md`
 
 ## File Structure
 

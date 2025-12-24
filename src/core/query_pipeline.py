@@ -260,6 +260,7 @@ class QueryPipeline:
         # Check if this is an INFORMATION_SCHEMA query that needs conversion
         final_sql = sql
         was_converted = False
+        return_empty = False
 
         if InformationSchemaConverter.can_convert(sql):
             converted_sql = InformationSchemaConverter.convert_to_show(sql)
@@ -274,6 +275,26 @@ class QueryPipeline:
                 )
                 final_sql = converted_sql
                 was_converted = True
+            else:
+                # Can't convert (too complex) - return empty result instead of failing
+                self.query_logger.info(
+                    f"INFORMATION_SCHEMA query too complex to convert, returning empty result",
+                    extra={
+                        'query_id': query_id,
+                        'original': sql
+                    }
+                )
+                return_empty = True
+
+        # If we need to return empty result, do so without executing
+        if return_empty:
+            return QueryPipelineResult(
+                success=True,
+                columns=[],
+                rows=[],
+                was_transformed=False,
+                execution_time_ms=0.0
+            )
 
         self.query_logger.log_metadata_passthrough(query_id, final_sql)
 

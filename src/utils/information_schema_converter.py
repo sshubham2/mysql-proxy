@@ -96,7 +96,7 @@ class InformationSchemaConverter:
             return "SHOW TABLES"
 
     @staticmethod
-    def _convert_columns_query(ast: exp.Select) -> str:
+    def _convert_columns_query(ast: exp.Select) -> Optional[str]:
         """
         Convert INFORMATION_SCHEMA.COLUMNS query to SHOW COLUMNS
 
@@ -107,18 +107,52 @@ class InformationSchemaConverter:
             SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'mydb' AND TABLE_NAME = 'users'
             -> SHOW COLUMNS FROM mydb.users
         """
+        # Check if WHERE clause has complex conditions we can't convert
+        if InformationSchemaConverter._has_complex_where(ast):
+            # Can't convert - will return empty result later
+            return None
+
         # Extract table name from WHERE clause
         table_name = InformationSchemaConverter._extract_table_from_where(ast)
         database = InformationSchemaConverter._extract_schema_from_where(ast)
 
         if table_name:
-            if database:
+            if database and database != '':
                 return f"SHOW COLUMNS FROM {database}.{table_name}"
             else:
                 return f"SHOW COLUMNS FROM {table_name}"
         else:
-            # Can't determine table - return generic SHOW
-            return "SHOW TABLES"
+            # Can't determine table - can't convert
+            return None
+
+    @staticmethod
+    def _has_complex_where(ast: exp.Select) -> bool:
+        """
+        Check if WHERE clause contains conditions we can't convert to SHOW
+
+        Complex conditions include:
+        - Filtering by DATA_TYPE (e.g., data_type='enum')
+        - Filtering by COLUMN_NAME
+        - Filtering by other metadata columns
+        - OR conditions
+        - Complex expressions
+        """
+        where = ast.find(exp.Where)
+        if not where:
+            return False
+
+        # Check for conditions on columns other than TABLE_NAME and TABLE_SCHEMA
+        for node in where.find_all(exp.Column):
+            col_name = node.name.upper()
+            # Only TABLE_NAME and TABLE_SCHEMA are convertible
+            if col_name not in ('TABLE_NAME', 'TABLE_SCHEMA'):
+                return True  # Has filter on other columns (data_type, column_name, etc.)
+
+        # Check for OR conditions (can't convert to SHOW)
+        if list(where.find_all(exp.Or)):
+            return True
+
+        return False
 
     @staticmethod
     def _extract_schema_from_where(ast: exp.Select) -> Optional[str]:
