@@ -265,7 +265,7 @@ class QueryPipeline:
         if InformationSchemaConverter.can_convert(sql):
             converted_sql = InformationSchemaConverter.convert_to_show(sql)
             if converted_sql:
-                self.query_logger.info(
+                self.query_logger.logger.info(
                     f"Converting INFORMATION_SCHEMA query to SHOW command",
                     extra={
                         'query_id': query_id,
@@ -277,7 +277,7 @@ class QueryPipeline:
                 was_converted = True
             else:
                 # Can't convert (too complex) - return empty result instead of failing
-                self.query_logger.info(
+                self.query_logger.logger.info(
                     f"INFORMATION_SCHEMA query too complex to convert, returning empty result",
                     extra={
                         'query_id': query_id,
