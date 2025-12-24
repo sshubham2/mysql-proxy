@@ -116,6 +116,47 @@ All core functionality has been implemented and is ready for testing.
 - Fixed in: `src/main.py:112`, `src/backend/odbc_connection.py:91`
 - See: `docs/CONNECTION_TESTING.md`
 
+### Fix: SET Command Handling ✅
+**Problem**: Backend driver doesn't support `SET NAMES` and other SET commands
+**Fixed**: Added `_set_middleware` to handle SET commands locally in proxy
+- `SET NAMES utf8mb4` handled locally (doesn't reach backend)
+- `SET CHARACTER SET`, `SET TRANSACTION` also handled
+- Backend driver limitations completely bypassed
+- Full MySQL client compatibility (Tableau, JDBC, ODBC)
+- Fixed in: `src/core/session.py:45`
+- See: `docs/SET_COMMAND_HANDLING.md`
+
+### Fix: Metadata Query Bypass ✅
+**Problem**: `INFORMATION_SCHEMA` queries required `cob_date` filter, blocking Tableau connection
+**Fixed**: Extended metadata detection to include system schema queries
+- `SELECT * FROM INFORMATION_SCHEMA.TABLES` now bypasses validation
+- Also bypasses for `performance_schema`, `mysql`, `sys` databases
+- Tableau can now connect and discover schema
+- `cob_date` requirement still enforced on actual data queries
+- Fixed in: `src/utils/sql_parser.py:74-104`
+- See: `docs/METADATA_QUERY_BYPASS.md`
+
+### Fix: Static Query Handling ✅
+**Problem**: `SELECT CONNECTION_ID()` required `cob_date` and not supported by backend driver
+**Fixed**: Added `_static_query_middleware` to handle static queries locally
+- `SELECT CONNECTION_ID()` executed locally (doesn't reach backend)
+- Also handles `SELECT DATABASE()`, `SELECT USER()`, `SELECT 1`, etc.
+- Backend driver limitations bypassed
+- No validation required for session information queries
+- Fixed in: `src/core/session.py:46`
+- See: `docs/STATIC_QUERY_HANDLING.md`
+
+### Fix: INFORMATION_SCHEMA Conversion ✅
+**Problem**: Backend doesn't support `INFORMATION_SCHEMA` queries (SELECT * FROM INFORMATION_SCHEMA.TABLES)
+**Fixed**: Automatic conversion of INFORMATION_SCHEMA queries to equivalent SHOW commands
+- `SELECT * FROM INFORMATION_SCHEMA.TABLES` → `SHOW TABLES`
+- `SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users'` → `SHOW COLUMNS FROM users`
+- `SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA` → `SHOW DATABASES`
+- Conversion happens transparently before sending to backend
+- Tableau can now discover schema even with limited backend
+- Fixed in: `src/utils/information_schema_converter.py`, `src/core/query_pipeline.py:260-276`
+- See: `docs/INFORMATION_SCHEMA_CONVERSION.md`
+
 ## File Structure
 
 ```

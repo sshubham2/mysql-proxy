@@ -106,15 +106,24 @@ class ChronosSession(Session):
         # Override middlewares to pass everything to backend
         # Only keep essential session state management
         self.middlewares = [
-            self._set_var_middleware,  # Handle SET @var (session variables)
-            self._use_middleware,       # Handle USE database (current db)
+            self._set_var_middleware,    # Handle SET @var (session variables)
+            self._set_middleware,         # Handle SET NAMES, SET CHARACTER SET, etc.
+            self._static_query_middleware, # Handle SELECT CONNECTION_ID(), etc.
+            self._use_middleware,         # Handle USE database (current db)
         ]
 ```
 
 ### What This Does
 
 **Intercepted locally** (handled by middlewares):
-- `SET @variable = value` - Session variables
+- `SET @variable = value` - Session variables (user-defined variables)
+- `SET NAMES utf8mb4` - Character set configuration
+- `SET CHARACTER SET utf8` - Character set configuration
+- `SET TRANSACTION ISOLATION LEVEL READ COMMITTED` - Transaction characteristics
+- `SELECT CONNECTION_ID()` - Static queries (no FROM clause)
+- `SELECT DATABASE()` - Static queries (no FROM clause)
+- `SELECT USER()`, `SELECT VERSION()` - Static queries
+- `SELECT 1`, `SELECT @@version` - Static queries
 - `USE database_name` - Current database
 
 **Passed to backend** (go to `query()` method → backend):
@@ -188,13 +197,18 @@ USE other_database;
 | Query Type | Handler | Reason |
 |------------|---------|--------|
 | **SET @var** | `_set_var_middleware` | Session variables are local state |
+| **SET NAMES** | `_set_middleware` | Character set is session state |
+| **SET CHARACTER SET** | `_set_middleware` | Character set is session state |
+| **SET TRANSACTION** | `_set_middleware` | Transaction options are session state |
+| **SELECT CONNECTION_ID()** | `_static_query_middleware` | Session info, no backend needed |
+| **SELECT DATABASE()** | `_static_query_middleware` | Session info, no backend needed |
+| **SELECT 1** | `_static_query_middleware` | Static query, no backend needed |
 | **USE database** | `_use_middleware` | Current database is local state |
 | **SHOW statements** | **Backend** (via `query()`) | Need real backend schema |
 | **DESCRIBE** | **Backend** (via `query()`) | Need real backend schema |
 | **INFORMATION_SCHEMA** | **Backend** (via `query()`) | Need real backend metadata |
 | **BEGIN/COMMIT/ROLLBACK** | **Backend** (via `query()`) | Backend manages transactions |
-| **SELECT ...** | **Backend** (via `query()`) | All regular queries to backend |
-| **Static queries** | **Backend** (via `query()`) | Consistency with backend behavior |
+| **SELECT * FROM table** | **Backend** (via `query()`) | Data queries to backend |
 
 ## Implementation Status
 
@@ -202,10 +216,12 @@ USE other_database;
 
 ```python
 # Override middlewares to pass everything to backend
-# Only keep essential variable/connection management
+# Only keep essential session state management
 self.middlewares = [
-    self._set_var_middleware,  # Handle SET commands
-    self._use_middleware,       # Handle USE database
+    self._set_var_middleware,    # Handle SET @var (session variables)
+    self._set_middleware,         # Handle SET NAMES, SET CHARACTER SET, etc.
+    self._static_query_middleware, # Handle SELECT CONNECTION_ID(), etc.
+    self._use_middleware,         # Handle USE database (current db tracking)
 ]
 ```
 

@@ -74,6 +74,7 @@ class SQLParser:
     def is_metadata_query(self, sql: str) -> bool:
         """
         Check if query is a metadata query (SHOW, DESCRIBE, USE, SET, etc.)
+        Also includes queries to INFORMATION_SCHEMA and other system schemas.
 
         Args:
             sql: SQL query string
@@ -83,7 +84,24 @@ class SQLParser:
         """
         query_type = self.get_query_type(sql)
         metadata_types = {QueryType.SHOW, QueryType.DESCRIBE, QueryType.USE, QueryType.SET}
-        return query_type in metadata_types
+
+        if query_type in metadata_types:
+            return True
+
+        # Check if SELECT query is from INFORMATION_SCHEMA or other system schemas
+        if query_type == QueryType.SELECT:
+            sql_upper = sql.upper()
+            # Check for system schema queries (case-insensitive)
+            system_schemas = [
+                'INFORMATION_SCHEMA',
+                'PERFORMANCE_SCHEMA',
+                'MYSQL.', 'SYS.',  # MySQL system databases
+            ]
+            for schema in system_schemas:
+                if schema in sql_upper:
+                    return True
+
+        return False
 
     def has_joins(self, ast: exp.Expression) -> Tuple[bool, List[str]]:
         """

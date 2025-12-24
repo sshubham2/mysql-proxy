@@ -41,8 +41,10 @@ class ChronosSession(Session):
         # queries and returns synthetic results. For a proxy, we need the real
         # backend's metadata. Only keep essential session state management:
         self.middlewares = [
-            self._set_var_middleware,  # Handle SET @var (session variables)
-            self._use_middleware,       # Handle USE database (current db tracking)
+            self._set_var_middleware,    # Handle SET @var (session variables)
+            self._set_middleware,         # Handle SET NAMES, SET CHARACTER SET, etc.
+            self._static_query_middleware, # Handle SELECT CONNECTION_ID(), SELECT 1, etc.
+            self._use_middleware,         # Handle USE database (current db tracking)
         ]
         # All other queries (SHOW, DESCRIBE, INFORMATION_SCHEMA, SELECT, etc.)
         # will pass through to query() method and reach the backend server.

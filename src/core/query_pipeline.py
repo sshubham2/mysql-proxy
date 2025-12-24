@@ -18,6 +18,7 @@ from src.validation.cob_date_validator import CobDateValidator, MissingCobDateEr
 from src.transformation.transformer import Transformer
 from src.transformation.subquery_unwrapper import SubqueryTooComplex
 from src.backend.executor import QueryExecutor, QueryExecutionResult
+from src.utils.information_schema_converter import InformationSchemaConverter
 
 
 class QueryPipelineResult:
@@ -256,9 +257,27 @@ class QueryPipeline:
         sql: str
     ) -> QueryPipelineResult:
         """Execute metadata query directly without transformation"""
-        self.query_logger.log_metadata_passthrough(query_id, sql)
+        # Check if this is an INFORMATION_SCHEMA query that needs conversion
+        final_sql = sql
+        was_converted = False
 
-        exec_result = self.executor.execute(sql)
+        if InformationSchemaConverter.can_convert(sql):
+            converted_sql = InformationSchemaConverter.convert_to_show(sql)
+            if converted_sql:
+                self.query_logger.info(
+                    f"Converting INFORMATION_SCHEMA query to SHOW command",
+                    extra={
+                        'query_id': query_id,
+                        'original': sql,
+                        'converted': converted_sql
+                    }
+                )
+                final_sql = converted_sql
+                was_converted = True
+
+        self.query_logger.log_metadata_passthrough(query_id, final_sql)
+
+        exec_result = self.executor.execute(final_sql)
 
         if exec_result.success:
             converted_rows = ResultConverter.convert_rows(exec_result.rows)
@@ -267,12 +286,12 @@ class QueryPipeline:
                 success=True,
                 columns=exec_result.columns,
                 rows=converted_rows,
-                was_transformed=False,
+                was_transformed=was_converted,
                 execution_time_ms=exec_result.execution_time_ms
             )
         else:
             error_msg = ErrorFormatter.format_backend_error(
-                sql,
+                final_sql,
                 exec_result.error_code,
                 exec_result.error
             )
