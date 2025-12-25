@@ -306,22 +306,25 @@ class QueryPipeline:
             converted_sql = InformationSchemaConverter.convert_to_show(sql)
             if converted_sql:
                 self.query_logger.logger.info(
-                    f"Converting INFORMATION_SCHEMA query to SHOW command",
+                    f"Converting INFORMATION_SCHEMA query",
                     extra={
                         'query_id': query_id,
                         'original': sql,
-                        'converted': converted_sql
+                        'converted': converted_sql,
+                        'action': 'CONVERTED'
                     }
                 )
                 final_sql = converted_sql
                 was_converted = True
             else:
-                # Can't convert (too complex) - return empty result instead of failing
+                # Can't convert or not supported - return empty result instead of sending to backend
                 self.query_logger.logger.info(
-                    f"INFORMATION_SCHEMA query too complex to convert, returning empty result",
+                    f"INFORMATION_SCHEMA query not supported, returning empty result",
                     extra={
                         'query_id': query_id,
-                        'original': sql
+                        'original': sql,
+                        'action': 'RETURN_EMPTY',
+                        'reason': 'COLUMNS queries or complex queries not supported by backend'
                     }
                 )
                 return_empty = True
