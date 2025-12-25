@@ -27,8 +27,24 @@ wait_timeout = 28800
 interactive_timeout = 28800
 ```
 
-#### B. Connection Pool Issues
-The ODBC connection pool may be reusing a stale connection.
+#### B. Backend Single Connection Limitation ⚠️ **MOST COMMON CAUSE**
+Your backend driver may only support a single connection at a time.
+
+**Status**: ✅ **FIXED** - Set pool_size to 1
+
+**Solution**: Set pool size to 1 in `config/config.yaml`:
+```yaml
+backend:
+  connection_type: odbc
+  pool_size: 1  # CRITICAL: Backend only supports 1 connection!
+  pool_recycle: 3600
+  pool_pre_ping: true
+```
+
+This is the **primary fix** for WinError 64 when backend has single-connection limitation.
+
+#### C. Connection Pool Issues (Multiple Connection Backends)
+If your backend supports multiple connections, the ODBC connection pool may be reusing a stale connection.
 
 **Solution 1**: Enable connection health checks in `config/config.yaml`:
 ```yaml
@@ -45,7 +61,7 @@ backend:
   pool_size: 3  # Smaller pool, fewer stale connections
 ```
 
-#### C. Backend Driver Limitations
+#### D. Backend Driver Limitations
 Your backend driver may close connections after certain queries.
 
 **Debug**: Check backend logs when error occurs. Look for:
@@ -53,7 +69,7 @@ Your backend driver may close connections after certain queries.
 - Query errors
 - Timeout messages
 
-#### D. Too Many Queries
+#### E. Too Many Queries
 Tableau sends many queries on connection, overwhelming backend.
 
 **Solution**: Add query throttling or connection limits in backend.
@@ -336,11 +352,11 @@ Instead of:
 
 ## Summary
 
-Most common issue: **Backend connection drops**
+Most common issue: **Backend connection drops (WinError 64)**
 
 **Top 3 Solutions**:
-1. Increase backend `wait_timeout` and `interactive_timeout`
-2. Enable connection health checks in proxy
+1. **Set pool_size: 1** if backend only supports single connection (MOST COMMON FIX)
+2. Increase backend `wait_timeout` and `interactive_timeout`
 3. Check backend logs for connection/query errors
 
 If still stuck, provide:
