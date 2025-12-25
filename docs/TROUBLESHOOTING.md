@@ -92,7 +92,21 @@ Tableau sends many queries on connection, overwhelming backend.
 - `SELECT * FROM INFORMATION_SCHEMA.COLUMNS` → Converted to `SHOW COLUMNS`
 - Complex queries → Return empty result gracefully
 
-### 4. cob_date filter is mandatory
+### 4. INFORMATION_SCHEMA.COLUMNS queries reaching backend
+
+**Symptom**: Tableau queries with backticks cause backend errors and connection drops.
+
+**Status**: ✅ **FIXED** in commit 85549cc
+
+**Cause**: Pattern matching failed for backtick-quoted identifiers like `` `information_schema`.`columns` ``
+
+**Fix**: Simplified pattern detection to check if 'INFORMATION_SCHEMA' appears anywhere in SQL.
+
+**Queries affected**:
+- `` SELECT `table_name` FROM `information_schema`.`columns` ``
+- Now correctly returns empty instead of sending to backend
+
+### 5. cob_date filter is mandatory
 
 **Symptom**: Metadata queries rejected for missing cob_date.
 
