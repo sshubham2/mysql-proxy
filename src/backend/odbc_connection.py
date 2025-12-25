@@ -87,8 +87,8 @@ class ODBCConnectionPool:
         """
         try:
             cursor = conn.cursor()
-            # Use SHOW query instead of SELECT 1 to avoid validation issues
-            cursor.execute("SHOW STATUS LIKE 'Threads_connected'")
+            # Use SHOW TABLES to test connection (SHOW STATUS not supported by backend)
+            cursor.execute("SHOW TABLES")
             cursor.fetchone()
             cursor.close()
             return True

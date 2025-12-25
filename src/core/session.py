@@ -82,17 +82,45 @@ class ChronosSession(Session):
         )
 
         # Process query
-        result = pipeline.process(sql)
+        try:
+            result = pipeline.process(sql)
 
-        if result.success:
-            # Extract column names from column definitions
-            column_names = [col[0] for col in result.columns]
+            if result.success:
+                # Extract column names from column definitions
+                # Handle empty or malformed column definitions gracefully
+                try:
+                    if result.columns:
+                        column_names = [col[0] if isinstance(col, (tuple, list)) else str(col) for col in result.columns]
+                    else:
+                        # No columns defined - return empty
+                        column_names = []
+                except (IndexError, TypeError) as e:
+                    self.logger.warning(
+                        f"Malformed column definitions: {e}",
+                        extra={'connection_id': self.connection_id, 'columns': str(result.columns)[:100]}
+                    )
+                    column_names = []
 
-            # Return rows and column names
-            return result.rows, column_names
-        else:
-            # Raise error to send to client
-            raise Exception(result.error_message)
+                # Return rows and column names
+                return result.rows, column_names
+            else:
+                # Query failed - send error to client gracefully
+                # Log the error but don't print full traceback
+                self.logger.warning(
+                    f"Query failed: {result.error_message}",
+                    extra={'connection_id': self.connection_id, 'query': sql[:100]}
+                )
+                # Raise error to send to client (mysql-mimic handles this)
+                raise Exception(result.error_message)
+        except Exception as e:
+            # Log error without traceback (exc_info=False suppresses traceback)
+            self.logger.error(
+                f"Query execution error: {str(e)}",
+                extra={'connection_id': self.connection_id, 'query': sql[:100]},
+                exc_info=False  # Don't print traceback
+            )
+            # Re-raise to send error to client (mysql-mimic will handle this)
+            raise
 
     async def schema(self) -> Dict[str, Dict[str, Dict[str, str]]]:
         """
