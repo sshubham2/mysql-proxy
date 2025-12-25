@@ -62,26 +62,28 @@ class InformationSchemaConverter:
 
             table_name = table.name.upper()
 
-            # Backend supports INFORMATION_SCHEMA queries natively
-            # Don't convert - just pass through to backend
-            # Only check for complex queries that can't be handled
+            # Backend supports ONLY these specific INFORMATION_SCHEMA queries:
+            # 1. INFORMATION_SCHEMA.SCHEMATA (for database list)
+            # 2. INFORMATION_SCHEMA.TABLES (for table list)
+            # All others should return empty
 
-            if 'TABLES' in table_name:
-                # Check if it's too complex, otherwise send as-is
+            if 'SCHEMATA' in table_name:
+                # Database list query - backend supports this
+                return sql  # Send original query to backend
+
+            elif 'TABLES' in table_name:
+                # Table list query - backend supports this
+                # But check if it's too complex
                 if InformationSchemaConverter._has_complex_where(ast):
                     return None  # Too complex, return empty
                 return sql  # Send original query to backend
 
             elif 'COLUMNS' in table_name:
-                # Check if it's too complex, otherwise send as-is
-                if InformationSchemaConverter._has_complex_where(ast):
-                    return None  # Too complex, return empty
-                return sql  # Send original query to backend
+                # Column queries - NOT confirmed to work on backend
+                # Return empty for safety
+                return None
 
-            elif 'SCHEMATA' in table_name:
-                # Backend supports INFORMATION_SCHEMA.SCHEMATA
-                return sql  # Send original query to backend
-
+            # All other INFORMATION_SCHEMA queries return empty
             return None
 
         except Exception:
