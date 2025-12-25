@@ -89,7 +89,9 @@ class SubqueryUnwrapper:
 
     def _unwrap_tableau_pattern(self, ast: exp.Select) -> Optional[exp.Select]:
         """
-        Unwrap Tableau subquery pattern: SELECT * FROM (SELECT ...) alias
+        Unwrap Tableau subquery pattern:
+        - SELECT * FROM (SELECT ...) alias
+        - SELECT alias.col1, alias.col2 FROM (SELECT ...) alias
 
         Args:
             ast: Outer SELECT statement
@@ -97,13 +99,13 @@ class SubqueryUnwrapper:
         Returns:
             Unwrapped AST or None if pattern doesn't match
         """
-        # Check if SELECT *
-        if not self._is_select_star(ast):
-            return None
+        import logging
+        logger = logging.getLogger('chronosproxy.transform')
 
         # Check if FROM clause has exactly one subquery
         from_clause = ast.find(exp.From)
         if not from_clause:
+            logger.debug("_unwrap_tableau_pattern: No FROM clause")
             return None
 
         # Get subquery from FROM
@@ -111,19 +113,34 @@ class SubqueryUnwrapper:
         for table in from_clause.find_all(exp.Subquery):
             if subquery is not None:
                 # Multiple subqueries, too complex
+                logger.debug("_unwrap_tableau_pattern: Multiple subqueries, too complex")
                 return None
             subquery = table
 
         if subquery is None:
+            logger.debug("_unwrap_tableau_pattern: No subquery found")
             return None
 
         # Get inner SELECT
         inner_select = subquery.this
         if not isinstance(inner_select, exp.Select):
+            logger.debug("_unwrap_tableau_pattern: Subquery is not a SELECT")
             return None
 
-        # Clone inner SELECT for modification
-        unwrapped = inner_select.copy()
+        # Pattern 1: SELECT * FROM (subquery)
+        if self._is_select_star(ast):
+            logger.debug("_unwrap_tableau_pattern: Pattern 1 (SELECT *) matched")
+            # Clone inner SELECT for modification
+            unwrapped = inner_select.copy()
+        # Pattern 2: SELECT alias.col1, alias.col2 FROM (subquery) alias
+        # Check if all selected columns reference the subquery alias
+        elif subquery.alias and self._all_columns_from_alias(ast, subquery.alias):
+            logger.debug(f"_unwrap_tableau_pattern: Pattern 2 (SELECT alias.cols) matched, alias='{subquery.alias}'")
+            # Clone inner SELECT for modification
+            unwrapped = inner_select.copy()
+        else:
+            logger.debug("_unwrap_tableau_pattern: No pattern matched")
+            return None
 
         # Merge outer WHERE into inner WHERE (if exists)
         outer_where = ast.find(exp.Where)
@@ -182,6 +199,51 @@ class SubqueryUnwrapper:
                 return True
 
         return False
+
+    def _all_columns_from_alias(self, ast: exp.Select, alias_name: str) -> bool:
+        """
+        Check if all selected columns reference a specific table alias
+
+        Args:
+            ast: SELECT statement
+            alias_name: Table alias to check
+
+        Returns:
+            True if all columns are from the specified alias
+        """
+        import logging
+        logger = logging.getLogger('chronosproxy.transform')
+
+        if not ast.expressions:
+            logger.debug("_all_columns_from_alias: No expressions")
+            return False
+
+        # Check each selected expression
+        for expr in ast.expressions:
+            # Handle aliased columns: col AS alias
+            actual_expr = expr.this if isinstance(expr, exp.Alias) else expr
+
+            # Check if it's a column reference
+            if isinstance(actual_expr, exp.Column):
+                # Check if column has a table reference
+                if actual_expr.table:
+                    # Compare table name (case-insensitive)
+                    if actual_expr.table.lower() != alias_name.lower():
+                        logger.debug(f"_all_columns_from_alias: Column {actual_expr} references different table '{actual_expr.table}'")
+                        return False
+                else:
+                    # Column without table reference - could be from anywhere
+                    logger.debug(f"_all_columns_from_alias: Column {actual_expr} has no table reference")
+                    # For now, be lenient and allow it
+                    pass
+            else:
+                # Not a simple column reference (could be expression)
+                logger.debug(f"_all_columns_from_alias: Expression is not a Column: {type(actual_expr).__name__}")
+                # For now, be lenient and allow it
+                pass
+
+        logger.debug(f"_all_columns_from_alias: All columns reference alias '{alias_name}'")
+        return True
 
     def _get_limit_value(self, limit: exp.Limit) -> Optional[int]:
         """

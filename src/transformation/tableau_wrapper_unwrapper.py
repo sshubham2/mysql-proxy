@@ -15,8 +15,8 @@ class TableauWrapperUnwrapper:
         """
         Check if query is a Tableau custom SQL wrapper
 
-        Pattern: SELECT * FROM (<subquery>) `Custom SQL Query`
-        Or: SELECT * FROM (<subquery>) alias_name
+        Pattern 1: SELECT * FROM (<subquery>) `Custom SQL Query`
+        Pattern 2: SELECT alias.col1, alias.col2 FROM (<subquery>) alias
 
         Args:
             sql: SQL query
@@ -24,34 +24,52 @@ class TableauWrapperUnwrapper:
         Returns:
             True if this is a Tableau wrapper
         """
+        import logging
+        logger = logging.getLogger('chronosproxy.transform')
+
         try:
             ast = parse_one(sql, dialect='mysql')
 
+            logger.debug(f"TableauWrapperUnwrapper.needs_unwrapping: AST type={type(ast).__name__}")
+
             if not isinstance(ast, exp.Select):
-                return False
-
-            # Check if SELECT *
-            select_expressions = ast.expressions
-            if len(select_expressions) != 1:
-                return False
-
-            if not isinstance(select_expressions[0], exp.Star):
+                logger.debug("TableauWrapperUnwrapper: Not a Select, skipping")
                 return False
 
             # Check if FROM has only one subquery
             from_clause = ast.find(exp.From)
             if not from_clause:
+                logger.debug("TableauWrapperUnwrapper: No FROM clause")
                 return False
 
             # Check if it's a subquery
             subquery = from_clause.find(exp.Subquery)
             if not subquery:
+                logger.debug("TableauWrapperUnwrapper: No subquery in FROM")
                 return False
 
-            # This is SELECT * FROM (subquery)
-            return True
+            # Check select expressions
+            select_expressions = ast.expressions
+            logger.debug(f"TableauWrapperUnwrapper: {len(select_expressions)} select expressions")
 
-        except Exception:
+            # Pattern 1: SELECT *
+            if len(select_expressions) == 1 and isinstance(select_expressions[0], exp.Star):
+                logger.debug("TableauWrapperUnwrapper: Matched pattern 1 (SELECT *)")
+                return True
+
+            # Pattern 2: SELECT alias.col1, alias.col2, ... FROM (subquery) alias
+            # All selected columns reference the subquery alias
+            if subquery.alias:
+                logger.debug(f"TableauWrapperUnwrapper: Subquery has alias '{subquery.alias}'")
+                # This is SELECT cols FROM (subquery) alias - let SubqueryUnwrapper handle it
+                logger.debug("TableauWrapperUnwrapper: Has subquery with alias, will let SubqueryUnwrapper handle it")
+                return False
+
+            logger.debug("TableauWrapperUnwrapper: No pattern matched")
+            return False
+
+        except Exception as e:
+            logger.debug(f"TableauWrapperUnwrapper: Exception during parsing: {e}")
             return False
 
     @staticmethod
