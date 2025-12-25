@@ -134,23 +134,35 @@ class InformationSchemaConverter:
         - Filtering by DATA_TYPE (e.g., data_type='enum')
         - Filtering by COLUMN_NAME
         - Filtering by other metadata columns
-        - OR conditions
         - Complex expressions
+
+        Allowed:
+        - TABLE_NAME, TABLE_SCHEMA filters
+        - TABLE_TYPE filters (for TABLES queries only)
         """
         where = ast.find(exp.Where)
         if not where:
             return False
 
-        # Check for conditions on columns other than TABLE_NAME and TABLE_SCHEMA
+        # Get table being queried
+        from_clause = ast.find(exp.From)
+        if from_clause:
+            table = from_clause.find(exp.Table)
+            table_name = table.name.upper() if table else ""
+        else:
+            table_name = ""
+
+        # Check for conditions on columns
         for node in where.find_all(exp.Column):
             col_name = node.name.upper()
+
+            # For TABLES queries, TABLE_TYPE is allowed (BASE TABLE, VIEW)
+            if 'TABLES' in table_name and col_name == 'TABLE_TYPE':
+                continue
+
             # Only TABLE_NAME and TABLE_SCHEMA are convertible
             if col_name not in ('TABLE_NAME', 'TABLE_SCHEMA'):
-                return True  # Has filter on other columns (data_type, column_name, etc.)
-
-        # Check for OR conditions (can't convert to SHOW)
-        if list(where.find_all(exp.Or)):
-            return True
+                return True  # Has filter on other columns
 
         return False
 

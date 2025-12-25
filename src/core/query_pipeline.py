@@ -17,6 +17,7 @@ from src.detection.unsupported_detector import UnsupportedDetector, UnsupportedF
 from src.validation.cob_date_validator import CobDateValidator, MissingCobDateError
 from src.transformation.transformer import Transformer
 from src.transformation.subquery_unwrapper import SubqueryTooComplex
+from src.transformation.tableau_wrapper_unwrapper import TableauWrapperUnwrapper
 from src.backend.executor import QueryExecutor, QueryExecutionResult
 from src.utils.information_schema_converter import InformationSchemaConverter
 
@@ -107,7 +108,17 @@ class QueryPipeline:
             if self._is_metadata_query(sql):
                 return self._execute_metadata_query(query_id, sql)
 
-            # Step 2: Security validation (write blocker)
+            # Step 2: Unwrap Tableau custom SQL wrapper if needed
+            if TableauWrapperUnwrapper.needs_unwrapping(sql):
+                unwrapped = TableauWrapperUnwrapper.unwrap(sql)
+                if unwrapped:
+                    self.query_logger.logger.info(
+                        "Unwrapped Tableau custom SQL query",
+                        extra={'query_id': query_id, 'original': sql[:200], 'unwrapped': unwrapped[:200]}
+                    )
+                    sql = unwrapped  # Use unwrapped query for rest of pipeline
+
+            # Step 3: Security validation (write blocker)
             try:
                 self.write_blocker.check_query(sql)
             except WriteOperationBlocked as e:
