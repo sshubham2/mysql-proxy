@@ -94,6 +94,18 @@ class ChronosSession(Session):
                     else:
                         # No columns defined - return empty
                         column_names = []
+
+                    # Debug logging for INFORMATION_SCHEMA queries
+                    if 'INFORMATION_SCHEMA' in sql.upper():
+                        self.logger.debug(
+                            f"INFORMATION_SCHEMA result",
+                            extra={
+                                'connection_id': self.connection_id,
+                                'columns': column_names,
+                                'row_count': len(result.rows),
+                                'sample_row': str(result.rows[0]) if result.rows else 'empty'
+                            }
+                        )
                 except (IndexError, TypeError) as e:
                     self.logger.warning(
                         f"Malformed column definitions: {e}",
