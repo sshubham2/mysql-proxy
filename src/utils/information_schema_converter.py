@@ -24,15 +24,15 @@ class InformationSchemaConverter:
         """
         sql_upper = sql.upper()
 
-        # Check for common INFORMATION_SCHEMA patterns
-        convertible_patterns = [
-            'INFORMATION_SCHEMA.TABLES',
-            'INFORMATION_SCHEMA.COLUMNS',
-            'INFORMATION_SCHEMA.SCHEMATA',
-            'INFORMATION_SCHEMA.TABLE_CONSTRAINTS',
-        ]
+        # Check if query references INFORMATION_SCHEMA database
+        # Handle both quoted and unquoted identifiers:
+        # - information_schema.columns
+        # - `information_schema`.`columns`
+        # - "information_schema"."columns"
 
-        return any(pattern in sql_upper for pattern in convertible_patterns)
+        # Simple check: if INFORMATION_SCHEMA appears anywhere, consider it convertible
+        # The actual conversion logic will determine if it's supported
+        return 'INFORMATION_SCHEMA' in sql_upper
 
     @staticmethod
     def convert_to_show(sql: str) -> Optional[str]:
