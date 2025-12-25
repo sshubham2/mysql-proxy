@@ -18,6 +18,7 @@ from src.validation.cob_date_validator import CobDateValidator, MissingCobDateEr
 from src.transformation.transformer import Transformer
 from src.transformation.subquery_unwrapper import SubqueryTooComplex
 from src.transformation.tableau_wrapper_unwrapper import TableauWrapperUnwrapper
+from src.transformation.paren_query_unwrapper import ParenthesizedQueryUnwrapper
 from src.backend.executor import QueryExecutor, QueryExecutionResult
 from src.utils.information_schema_converter import InformationSchemaConverter
 
@@ -110,6 +111,22 @@ class QueryPipeline:
         )
 
         try:
+            # Step 0: Unwrap parenthesized queries (e.g., (SELECT ...) LIMIT 0)
+            # Tableau sends these to discover schema without fetching data
+            if ParenthesizedQueryUnwrapper.needs_unwrapping(sql):
+                unwrapped = ParenthesizedQueryUnwrapper.unwrap(sql)
+                if unwrapped:
+                    self.query_logger.logger.info(
+                        "Unwrapped parenthesized query",
+                        extra={
+                            'query_id': query_id,
+                            'original_full': sql,
+                            'unwrapped_full': unwrapped,
+                            'pattern': 'parenthesized_with_limit'
+                        }
+                    )
+                    sql = unwrapped  # Use unwrapped query for rest of pipeline
+
             # Step 1: Check for unsupported SHOW commands (return empty)
             if self._is_unsupported_show_command(sql):
                 self.query_logger.logger.info(
