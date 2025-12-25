@@ -350,6 +350,34 @@ class QueryPipeline:
         if exec_result.success:
             converted_rows = ResultConverter.convert_rows(exec_result.rows)
 
+            # Log backend response format for SCHEMATA and TABLES queries
+            if 'SCHEMATA' in final_sql.upper() or 'SHOW DATABASES' in final_sql.upper():
+                self.query_logger.logger.info(
+                    "Backend response for database list query",
+                    extra={
+                        'query_id': query_id,
+                        'query': final_sql,
+                        'backend_columns': exec_result.columns,
+                        'backend_row_count': len(exec_result.rows),
+                        'backend_sample_rows': str(exec_result.rows[:3]) if exec_result.rows else 'empty',
+                        'converted_columns': exec_result.columns,
+                        'converted_sample_rows': str(converted_rows[:3]) if converted_rows else 'empty'
+                    }
+                )
+            elif 'TABLES' in final_sql.upper() or 'SHOW TABLES' in final_sql.upper():
+                self.query_logger.logger.info(
+                    "Backend response for table list query",
+                    extra={
+                        'query_id': query_id,
+                        'query': final_sql,
+                        'backend_columns': exec_result.columns,
+                        'backend_row_count': len(exec_result.rows),
+                        'backend_sample_rows': str(exec_result.rows[:5]) if exec_result.rows else 'empty',
+                        'converted_columns': exec_result.columns,
+                        'converted_sample_rows': str(converted_rows[:5]) if converted_rows else 'empty'
+                    }
+                )
+
             return QueryPipelineResult(
                 success=True,
                 columns=exec_result.columns,
