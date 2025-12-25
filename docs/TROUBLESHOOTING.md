@@ -106,7 +106,22 @@ Tableau sends many queries on connection, overwhelming backend.
 - `` SELECT `table_name` FROM `information_schema`.`columns` ``
 - Now correctly returns empty instead of sending to backend
 
-### 5. cob_date filter is mandatory
+### 5. AssertionError from mysql-mimic
+
+**Symptom**: Backend responds successfully but Tableau shows "no database found" and proxy throws AssertionError from mysql-mimic/results.py
+
+**Status**: ✅ **FIXED** in commit c84ce8b
+
+**Cause**: Column count mismatch - backend returns different number of column names vs row values
+
+**Fix**: Auto-validation and correction of column/row counts before sending to mysql-mimic
+
+**Example**:
+- Backend returns 4 values but only 1 column name
+- Proxy auto-pads with generic names: ['SCHEMA_NAME', 'column_2', 'column_3', 'column_4']
+- No AssertionError, results delivered successfully
+
+### 6. cob_date filter is mandatory
 
 **Symptom**: Metadata queries rejected for missing cob_date.
 
