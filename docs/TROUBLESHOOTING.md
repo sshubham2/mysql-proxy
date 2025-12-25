@@ -106,7 +106,27 @@ Tableau sends many queries on connection, overwhelming backend.
 - `` SELECT `table_name` FROM `information_schema`.`columns` ``
 - Now correctly returns empty instead of sending to backend
 
-### 5. AssertionError from mysql-mimic
+### 5. Tableau shows "no database found" even though backend returns data
+
+**Symptom**: Backend responds successfully, no proxy errors, but Tableau shows "no database found"
+
+**Status**: ✅ **FIXED** in commit eff3cf5
+
+**Cause**: Backend returns literal "NULL" as column names for computed NULL columns
+
+**Example**:
+```
+Query: SELECT NULL, NULL, NULL, SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA
+Backend columns: ["NULL", "NULL", "NULL", "SCHEMA_NAME"]
+```
+
+**Fix**: Auto-rename "NULL" column names to expr_1, expr_2, etc.
+
+**Result**:
+- Columns sent to Tableau: ["expr_1", "expr_2", "expr_3", "SCHEMA_NAME"]
+- Tableau successfully displays database list
+
+### 6. AssertionError from mysql-mimic
 
 **Symptom**: Backend responds successfully but Tableau shows "no database found" and proxy throws AssertionError from mysql-mimic/results.py
 
@@ -121,7 +141,7 @@ Tableau sends many queries on connection, overwhelming backend.
 - Proxy auto-pads with generic names: ['SCHEMA_NAME', 'column_2', 'column_3', 'column_4']
 - No AssertionError, results delivered successfully
 
-### 6. cob_date filter is mandatory
+### 7. cob_date filter is mandatory
 
 **Symptom**: Metadata queries rejected for missing cob_date.
 
