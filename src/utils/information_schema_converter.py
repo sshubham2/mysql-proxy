@@ -63,12 +63,19 @@ class InformationSchemaConverter:
             table_name = table.name.upper()
 
             # Convert based on INFORMATION_SCHEMA table
+            # Backend quirk: Supports INFORMATION_SCHEMA.SCHEMATA but NOT SHOW DATABASES
+            # Backend quirk: Supports SHOW TABLES but NOT INFORMATION_SCHEMA.TABLES
             if 'TABLES' in table_name:
+                # Convert INFORMATION_SCHEMA.TABLES → SHOW TABLES
                 return InformationSchemaConverter._convert_tables_query(ast)
             elif 'COLUMNS' in table_name:
+                # Convert INFORMATION_SCHEMA.COLUMNS → SHOW COLUMNS
                 return InformationSchemaConverter._convert_columns_query(ast)
             elif 'SCHEMATA' in table_name:
-                return "SHOW DATABASES"
+                # DON'T convert - backend supports INFORMATION_SCHEMA.SCHEMATA natively
+                # But doesn't support SHOW DATABASES
+                # Return original SQL to send as-is
+                return sql
 
             return None
 

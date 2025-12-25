@@ -104,11 +104,25 @@ class QueryPipeline:
         self.query_logger.log_received(query_id, sql, self.connection_id, self.source_ip)
 
         try:
-            # Step 1: Metadata query check
+            # Step 1: Check for unsupported SHOW commands (return empty)
+            if self._is_unsupported_show_command(sql):
+                self.query_logger.logger.info(
+                    "Unsupported SHOW command, returning empty result",
+                    extra={'query_id': query_id, 'query': sql}
+                )
+                return QueryPipelineResult(
+                    success=True,
+                    columns=[],
+                    rows=[],
+                    was_transformed=False,
+                    execution_time_ms=0.0
+                )
+
+            # Step 2: Metadata query check
             if self._is_metadata_query(sql):
                 return self._execute_metadata_query(query_id, sql)
 
-            # Step 2: Unwrap Tableau custom SQL wrapper if needed
+            # Step 3: Unwrap Tableau custom SQL wrapper if needed
             if TableauWrapperUnwrapper.needs_unwrapping(sql):
                 unwrapped = TableauWrapperUnwrapper.unwrap(sql)
                 if unwrapped:
@@ -257,6 +271,21 @@ class QueryPipeline:
                 rows=[],
                 error_message=f"Internal Error: {str(e)}"
             )
+
+    def _is_unsupported_show_command(self, sql: str) -> bool:
+        """Check if query is an unsupported SHOW command"""
+        sql_upper = sql.upper().strip()
+
+        # SHOW KEYS is not supported by backend
+        if sql_upper.startswith('SHOW KEYS') or sql_upper.startswith('SHOW INDEX'):
+            return True
+
+        # SHOW CREATE TABLE might not be supported
+        # Uncomment if needed:
+        # if sql_upper.startswith('SHOW CREATE'):
+        #     return True
+
+        return False
 
     def _is_metadata_query(self, sql: str) -> bool:
         """Check if query is metadata query"""
