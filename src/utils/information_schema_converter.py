@@ -81,6 +81,10 @@ class InformationSchemaConverter:
             elif 'COLUMNS' in table_name:
                 # Column queries - NOT confirmed to work on backend
                 # Return empty for safety
+                # DEBUG: Log this explicitly
+                import logging
+                logger = logging.getLogger('chronosproxy.information_schema_converter')
+                logger.info(f"COLUMNS query detected, returning None to block execution: {sql[:100]}")
                 return None
 
             # All other INFORMATION_SCHEMA queries return empty

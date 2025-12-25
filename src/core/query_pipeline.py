@@ -120,6 +120,10 @@ class QueryPipeline:
 
             # Step 2: Metadata query check
             if self._is_metadata_query(sql):
+                self.query_logger.logger.debug(
+                    f"Metadata query detected, routing to _execute_metadata_query",
+                    extra={'query_id': query_id, 'query': sql[:100]}
+                )
                 return self._execute_metadata_query(query_id, sql)
 
             # Step 3: Unwrap Tableau custom SQL wrapper if needed
