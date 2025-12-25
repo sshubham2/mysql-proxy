@@ -91,6 +91,17 @@ class ChronosSession(Session):
                 try:
                     if result.columns:
                         column_names = [col[0] if isinstance(col, (tuple, list)) else str(col) for col in result.columns]
+
+                        # Fix column names that are literally "NULL" (string)
+                        # Backend sometimes returns column name as "NULL" for computed NULL columns
+                        # This confuses Tableau - replace with generic names
+                        for i, col_name in enumerate(column_names):
+                            if col_name.upper() == 'NULL':
+                                column_names[i] = f'expr_{i+1}'  # expr_1, expr_2, etc.
+                                self.logger.debug(
+                                    f"Renamed NULL column to {column_names[i]}",
+                                    extra={'connection_id': self.connection_id, 'position': i+1}
+                                )
                     else:
                         # No columns defined - return empty
                         column_names = []
