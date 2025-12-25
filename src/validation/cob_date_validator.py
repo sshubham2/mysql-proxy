@@ -39,14 +39,14 @@ class CobDateValidator:
 
     def validate(self, sql: str, ast: exp.Expression):
         """
-        Validate that query includes cob_date filter
+        Validate that query includes cob_date OR date_index filter
 
         Args:
             sql: SQL query
             ast: Parsed SQL AST
 
         Raises:
-            MissingCobDateError: If cob_date filter is missing
+            MissingCobDateError: If neither cob_date nor date_index filter is present
         """
         if not self.require_cob_date:
             return
@@ -55,9 +55,10 @@ class CobDateValidator:
         if not isinstance(ast, exp.Select):
             return
 
-        # Check if cob_date is in WHERE clause
+        # Check if cob_date OR date_index is in WHERE clause
         has_cob_date = self.sql_parser.has_column_in_where(ast, 'cob_date')
+        has_date_index = self.sql_parser.has_column_in_where(ast, 'date_index')
 
-        if not has_cob_date:
+        if not has_cob_date and not has_date_index:
             error_msg = ErrorFormatter.format_missing_cob_date_error(sql)
             raise MissingCobDateError(error_msg)

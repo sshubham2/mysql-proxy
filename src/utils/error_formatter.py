@@ -146,7 +146,7 @@ Status: Not Supported"""
     @staticmethod
     def format_missing_cob_date_error(query: str) -> str:
         """
-        Format error message for missing cob_date
+        Format error message for missing cob_date or date_index
 
         Args:
             query: Original SQL query
@@ -154,19 +154,25 @@ Status: Not Supported"""
         Returns:
             Formatted error message
         """
-        return """MySQL Proxy Error: cob_date filter is mandatory
+        return """MySQL Proxy Error: Date filter is mandatory
 
-All queries must include a cob_date filter in the WHERE clause to ensure temporal consistency.
+All queries must include either a cob_date OR date_index filter in the WHERE clause to ensure temporal consistency.
 
-Required format:
+Required format (Option 1 - cob_date):
   SELECT column1, column2
   FROM table_name
   WHERE cob_date = '2024-01-15' AND other_conditions...
 
-The cob_date filter ensures your query operates on a specific date's data snapshot.
+Required format (Option 2 - date_index):
+  SELECT column1, column2
+  FROM table_name
+  WHERE date_index = -1 AND other_conditions...
+  (date_index = -1 means today, -2 means yesterday, etc.)
 
-Business Rule: Mandatory cob_date Filter
-Status: Rejected - Add cob_date filter and retry"""
+The date filter ensures your query operates on a specific date's data snapshot.
+
+Business Rule: Mandatory Date Filter (cob_date OR date_index)
+Status: Rejected - Add cob_date or date_index filter and retry"""
 
     @staticmethod
     def format_complex_subquery_error(query: str, depth: int, max_depth: int) -> str:
