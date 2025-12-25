@@ -113,6 +113,29 @@ class ChronosSession(Session):
                     )
                     column_names = []
 
+                # Validate result format before returning to mysql-mimic
+                # mysql-mimic has assertions that column count must match row value count
+                if result.rows and column_names:
+                    # Check first row to ensure column count matches
+                    first_row = result.rows[0]
+                    if len(first_row) != len(column_names):
+                        self.logger.warning(
+                            f"Column count mismatch: {len(column_names)} columns but row has {len(first_row)} values",
+                            extra={
+                                'connection_id': self.connection_id,
+                                'columns': column_names,
+                                'first_row': str(first_row)[:200]
+                            }
+                        )
+                        # Fix the mismatch by padding column names
+                        if len(first_row) > len(column_names):
+                            # More values than columns - add generic column names
+                            for i in range(len(column_names), len(first_row)):
+                                column_names.append(f'column_{i+1}')
+                        elif len(first_row) < len(column_names):
+                            # Fewer values than columns - truncate column names
+                            column_names = column_names[:len(first_row)]
+
                 # Return rows and column names
                 return result.rows, column_names
             else:
