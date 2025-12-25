@@ -49,13 +49,15 @@ class ParenthesizedQueryUnwrapper:
             return False
 
         # Pattern 1: (SELECT ...) LIMIT N
-        pattern1_match = re.match(r'^\(SELECT\s+.*\)\s+LIMIT\s+\d+$', sql_normalized, re.IGNORECASE)
+        # Allow optional whitespace after opening paren: (\s*SELECT
+        pattern1_match = re.match(r'^\(\s*SELECT\s+.*\)\s+LIMIT\s+\d+$', sql_normalized, re.IGNORECASE)
         if pattern1_match:
             logger.debug("ParenthesizedQueryUnwrapper: Matched pattern 1 (SELECT ...) LIMIT N")
             return True
 
         # Pattern 2: Just parentheses around SELECT
-        pattern2_match = re.match(r'^\(SELECT\s+.*\)$', sql_normalized, re.IGNORECASE)
+        # Allow optional whitespace after opening paren: (\s*SELECT
+        pattern2_match = re.match(r'^\(\s*SELECT\s+.*\)$', sql_normalized, re.IGNORECASE)
         if pattern2_match:
             logger.debug("ParenthesizedQueryUnwrapper: Matched pattern 2 (SELECT ...)")
             return True
@@ -88,8 +90,9 @@ class ParenthesizedQueryUnwrapper:
         logger.debug(f"ParenthesizedQueryUnwrapper.unwrap: Normalized SQL: {sql_normalized[:200]}")
 
         # Pattern 1: (SELECT ...) LIMIT N
+        # Allow optional whitespace after opening paren: (\s*SELECT
         match = re.match(
-            r'^\((SELECT\s+.+)\)\s+(LIMIT\s+\d+)$',
+            r'^\(\s*(SELECT\s+.+)\)\s+(LIMIT\s+\d+)$',
             sql_normalized,
             re.IGNORECASE
         )
@@ -102,8 +105,9 @@ class ParenthesizedQueryUnwrapper:
             return unwrapped
 
         # Pattern 2: Just (SELECT ...)
+        # Allow optional whitespace after opening paren: (\s*SELECT
         match = re.match(
-            r'^\((SELECT\s+.+)\)$',
+            r'^\(\s*(SELECT\s+.+)\)$',
             sql_normalized,
             re.IGNORECASE
         )
