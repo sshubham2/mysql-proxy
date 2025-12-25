@@ -53,6 +53,11 @@ class SubqueryUnwrapper:
         Raises:
             SubqueryTooComplex: If query is too complex to unwrap
         """
+        # Debug logging
+        import logging
+        logger = logging.getLogger('chronosproxy.transform')
+        logger.debug(f"SubqueryUnwrapper.unwrap() called, enabled={self.enabled}, AST type={type(ast).__name__}")
+
         if not self.enabled:
             return False, None, None
 
@@ -63,7 +68,10 @@ class SubqueryUnwrapper:
         unwrapped_ast = self._unwrap_tableau_pattern(ast)
 
         if unwrapped_ast is None:
+            logger.debug("SubqueryUnwrapper: Pattern doesn't match Tableau pattern, not unwrapping")
             return False, None, None
+
+        logger.debug("SubqueryUnwrapper: Matched Tableau pattern, unwrapping...")
 
         # Check final depth
         final_depth = self.sql_parser.get_subquery_depth(unwrapped_ast)
@@ -75,6 +83,7 @@ class SubqueryUnwrapper:
 
         # Convert back to SQL
         unwrapped_sql = self.sql_parser.to_sql(unwrapped_ast)
+        logger.debug(f"SubqueryUnwrapper: Unwrapped SQL length={len(unwrapped_sql)}, SQL=>>>{unwrapped_sql}<<<")
 
         return True, unwrapped_sql, unwrapped_ast
 

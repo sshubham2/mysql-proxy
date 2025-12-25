@@ -103,6 +103,12 @@ class QueryPipeline:
         # Log received
         self.query_logger.log_received(query_id, sql, self.connection_id, self.source_ip)
 
+        # Debug: Log full received query
+        self.query_logger.logger.debug(
+            f"RECEIVED QUERY: length={len(sql)}, SQL=>>>{sql}<<<",
+            extra={'query_id': query_id}
+        )
+
         try:
             # Step 1: Check for unsupported SHOW commands (return empty)
             if self._is_unsupported_show_command(sql):
