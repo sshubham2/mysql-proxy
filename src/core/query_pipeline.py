@@ -132,7 +132,13 @@ class QueryPipeline:
                 if unwrapped:
                     self.query_logger.logger.info(
                         "Unwrapped Tableau custom SQL query",
-                        extra={'query_id': query_id, 'original': sql[:200], 'unwrapped': unwrapped[:200]}
+                        extra={
+                            'query_id': query_id,
+                            'original_full': sql,  # Full original query
+                            'unwrapped_full': unwrapped,  # Full unwrapped query
+                            'original_snippet': sql[:200],
+                            'unwrapped_snippet': unwrapped[:200]
+                        }
                     )
                     sql = unwrapped  # Use unwrapped query for rest of pipeline
 

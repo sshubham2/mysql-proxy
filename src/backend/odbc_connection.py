@@ -162,6 +162,11 @@ class ODBCConnectionPool:
         Raises:
             pyodbc.Error: If query execution fails
         """
+        # Debug logging - log exact SQL being sent to backend
+        import logging
+        logger = logging.getLogger('chronosproxy.backend')
+        logger.debug(f"BACKEND EXECUTE: Full SQL string length={len(sql)}, SQL=>>>{sql}<<<")
+
         with self.get_connection() as conn:
             cursor = conn.cursor()
 
